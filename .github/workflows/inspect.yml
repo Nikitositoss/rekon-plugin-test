@@ -1,0 +1,35 @@
+name: inspect-apis
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar OpenOrbis
+        run: |
+          curl -fL -o oo.tar.gz https://github.com/StevenMiller123/OpenOrbis-PS4-Toolchain/releases/latest/download/openorbis_toolchain.tar.gz
+          mkdir -p "$HOME/oo"
+          tar -xzf oo.tar.gz -C "$HOME/oo"
+          TC=$(find "$HOME/oo" -type d -name PS4Toolchain | head -1)
+          echo "OO_PS4_TOOLCHAIN=$TC" >> "$GITHUB_ENV"
+
+      - name: Descargar SDK y plugins de GoldHEN (solo para leer)
+        run: |
+          git clone --depth 1 https://github.com/GoldHEN/GoldHEN_Plugins_SDK sdk
+          git clone --depth 1 https://github.com/GoldHEN/GoldHEN_Plugins plugins
+
+      - name: 1 - Funciones de video
+        run: grep -rnE "sceVideoOutSubmitFlip|sceVideoOutRegisterBuffers|sceVideoOutOpen" "$OO_PS4_TOOLCHAIN/include" | head -20
+
+      - name: 2 - Notificaciones y ficheros
+        run: grep -rnE "sceKernelSendNotificationRequest|sceKernelOpen|sceKernelWrite" "$OO_PS4_TOOLCHAIN/include" | head -20
+
+      - name: 3 - Ayudas de plugin_common.h
+        run: |
+          F=$(find plugins -name plugin_common.h | head -1)
+          echo "$F"
+          grep -nEi "define|notify|printf" "$F" | head -50
+
+      - name: 4 - Ayudas del SDK de GoldHEN
+        run: grep -rnEi "notify|define HOOK|define UNHOOK" sdk/include | head -30
