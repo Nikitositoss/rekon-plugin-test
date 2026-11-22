@@ -1,0 +1,26 @@
+name: inspect-apis-2
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar SDK y plugins de GoldHEN (solo para leer)
+        run: |
+          git clone --depth 1 https://github.com/GoldHEN/GoldHEN_Plugins_SDK sdk
+          git clone --depth 1 https://github.com/GoldHEN/GoldHEN_Plugins plugins
+
+      - name: 1 - Macros de hook
+        run: sed -n '35,70p' sdk/include/Utilities.h
+
+      - name: 2 - Ejemplos de HOOK_CONTINUE
+        run: grep -rn -B4 -A2 "HOOK_CONTINUE" plugins --include=*.c --include=*.cpp | head -50
+
+      - name: 3 - Donde esta Notify
+        run: |
+          ls plugins/common
+          grep -rn "Notify" plugins/common | head -15
+
+      - name: 4 - Detour en el SDK
+        run: grep -rn "Detour_Stub\|Detour_Destroy" sdk/include | head -15
