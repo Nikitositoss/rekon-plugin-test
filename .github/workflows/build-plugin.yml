@@ -1,0 +1,54 @@
+name: build-plugin
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar clang, lld y make
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld make
+
+      - name: Descargar OpenOrbis PS4 Toolchain
+        run: |
+          curl -fL -o oo.tar.gz https://github.com/StevenMiller123/OpenOrbis-PS4-Toolchain/releases/latest/download/openorbis_toolchain.tar.gz
+          mkdir -p "$HOME/oo"
+          tar -xzf oo.tar.gz -C "$HOME/oo"
+          TC=$(find "$HOME/oo" -type d -name PS4Toolchain | head -1)
+          test -n "$TC" || { echo "No se encontro la carpeta PS4Toolchain"; exit 1; }
+          chmod -R +x "$TC/bin/linux" || true
+          echo "OO_PS4_TOOLCHAIN=$TC" >> "$GITHUB_ENV"
+
+      - name: Compilar el SDK de plugins de GoldHEN
+        run: |
+          git clone https://github.com/GoldHEN/GoldHEN_Plugins_SDK sdk
+          make -C sdk
+          echo "GOLDHEN_SDK=$PWD/sdk" >> "$GITHUB_ENV"
+
+      - name: Descargar el repo de plugins de GoldHEN
+        run: git clone --recursive https://github.com/GoldHEN/GoldHEN_Plugins plugins
+
+      - name: Compilar el plugin REKON
+        run: |
+          set -e
+          EX=$(find plugins -type d -name fliprate_remover | head -1)
+          test -n "$EX" || { echo "No se encontro fliprate_remover"; exit 1; }
+          PLUGDIR=$(dirname "$EX")
+          mkdir -p "$PLUGDIR/rekon/source"
+          cp src/core/rekon_plugin.c "$PLUGDIR/rekon/source/"
+          cp "$EX/Makefile" "$PLUGDIR/rekon/Makefile"
+          BIN=$(realpath -m "$PLUGDIR/../../bin/plugins")
+          mkdir -p "$BIN/prx_final" "$BIN/elf_final"
+          make -C "$PLUGDIR/rekon"
+          mkdir -p out
+          cp "$BIN/prx_final/rekon.prx" out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rekon-prx
+          path: out/rekon.prx
